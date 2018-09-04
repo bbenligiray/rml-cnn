@@ -2,9 +2,12 @@ import os
 import argparse
 import h5py
 
+from resnet101 import resnet101
+
 
 def main():
-  pass
+  model = resnet101()
+  import pdb; pdb.set_trace()
 
 
 if __name__ == '__main__':
@@ -29,7 +32,5 @@ if __name__ == '__main__':
     test_images = f_dataset['val_images']
     test_image_shapes = f_dataset['val_image_shapes']
     test_labels = f_dataset['val_labels']
-
-  import pdb; pdb.set_trace()
 
   main()
