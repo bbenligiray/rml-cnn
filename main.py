@@ -9,7 +9,7 @@ def main():
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
-  parser.add_argument('dataset', choices=['nus_wide'])
+  parser.add_argument('dataset', choices=['nus_wide', 'ms_coco'])
   args = parser.parse_args()
 
   log_path = os.path.join('log', args.dataset)
