@@ -17,6 +17,13 @@ if __name__ == '__main__':
     os.makedirs(log_path)
 
   f_dataset = h5py.File(os.path.join('dataset', args.dataset + '.h5'), 'r')
+  train_images = f_dataset['train_images']
+  train_image_shapes = f_dataset['train_image_shapes']
+  train_labels = f_dataset['train_labels']
+
+  test_images = f_dataset['test_images']
+  test_image_shapes = f_dataset['test_image_shapes']
+  test_labels = f_dataset['test_labels']
 
   import pdb; pdb.set_trace()
 
