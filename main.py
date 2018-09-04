@@ -21,9 +21,14 @@ if __name__ == '__main__':
   train_image_shapes = f_dataset['train_image_shapes']
   train_labels = f_dataset['train_labels']
 
-  test_images = f_dataset['test_images']
-  test_image_shapes = f_dataset['test_image_shapes']
-  test_labels = f_dataset['test_labels']
+  if args.dataset == 'nus_wide':
+    test_images = f_dataset['test_images']
+    test_image_shapes = f_dataset['test_image_shapes']
+    test_labels = f_dataset['test_labels']
+  elif args.dataset == 'ms_coco':
+    test_images = f_dataset['val_images']
+    test_image_shapes = f_dataset['val_image_shapes']
+    test_labels = f_dataset['val_labels']
 
   import pdb; pdb.set_trace()
 
