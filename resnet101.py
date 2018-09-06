@@ -171,14 +171,14 @@ def conv_block(input_tensor, kernel_size, filters, stage, block, strides=(2, 2),
   return x
 
 
-def resnet101(no_classes, final_activation, pretrained=True, weight_decay=0):
+def resnet101(no_classes, initialization='imagenet', weight_decay=0, final_activation=None):
   '''Instantiate the ResNet101 architecture,
   # Arguments
     weights_path: path to pretrained weight file
   # Returns
     A Keras model instance.
   '''
-  if pretrained:
+  if initialization == 'imagenet':
     weights_path = 'resnet101_weights_tf.h5'
   else:
     weights_path = None

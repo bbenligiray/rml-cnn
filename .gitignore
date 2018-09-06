@@ -1,4 +1,5 @@
-/dataset/*
+/dataset
+/log
 
 *.pyc
 *.h5
