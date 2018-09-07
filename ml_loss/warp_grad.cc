@@ -66,10 +66,10 @@ class WarpGradOp : public OpKernel {
       for (int indPos = 0; indPos < scoresPos.size(); indPos++)
       {
         float L = computeWeights(scoresPos[indPos], scoresNeg, noClasses);
-        float normL = L / (batchSize * 10);
+        float normL = L / batchSize;
         for (int indNeg = 0; indNeg < scoresNeg.size(); indNeg++)
         {
-          if (1  - scoresPos[indPos] + scoresNeg[indNeg] > 0)
+          if (1 - scoresPos[indPos] + scoresNeg[indNeg] > 0)
           {
             grad(indExample, labelsPos[indPos]) -= normL;
             grad(indExample, labelsNeg[indNeg]) += normL;

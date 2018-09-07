@@ -11,7 +11,7 @@ from keras import backend as K
 from resnet101 import resnet101
 from multi_gpu import to_multi_gpu
 from lossplotter import LossPlotter
-from ml_loss.binary_relevance import binary_relevance
+import ml_loss
 from datahandler import DataHandler
 import metrics
 import params
@@ -51,7 +51,7 @@ def run_experiment(x):
   if args.optimize:
     global step
     step += 1
-    log_path = os.path.join('log', args.dataset, args.ml_method, args.init, str(step))
+    log_path = os.path.join('log', args.dataset, args.ml_method, args.init, str(args.labeled_ratio), str(args.corruption_ratio), str(step))
     if not os.path.exists(log_path):
       os.makedirs(log_path)
 
@@ -69,8 +69,8 @@ def run_experiment(x):
     early_stopper = EarlyStopping(monitor='val_loss', patience=params.lr_patience)
     loss_plotter = LossPlotter(os.path.join(log_path, str(ind_lr_step) + '_losses.png'))
 
-    his = model.fit_generator(generator=dh.generator('train'),
-                              steps_per_epoch=len(dh.train_images) / params.batch_size,
+    his = model.fit_generator(generator=dh.generator('train_labeled'),
+                              steps_per_epoch=len(dh.inds_labeled) / params.batch_size,
                               epochs=params.max_epoch,
                               callbacks=[model_checkpoint, early_stopper, loss_plotter],
                               validation_data=dh.generator('val'),
@@ -101,7 +101,7 @@ def run_experiment(x):
   with open(os.path.join(log_path, 'metrics.txt'), 'w') as f:
     f.write(str(metrics) + '\n')
   
-  return -metrics['f1c_top3'] # because gp_minimize tries to minimize the result
+  return -metrics['f1c_top3'] # negative because gp_minimize tries to minimize the result
 
 
 def main():
@@ -120,18 +120,31 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument('dataset', choices=['nus_wide', 'ms_coco'])
   parser.add_argument('init', choices=['imagenet', 'random'])
-  parser.add_argument('ml_method', choices=['br'])
+  parser.add_argument('ml_method', choices=['br', 'sm', 'pwr', 'warp', 'robust_warp'])
+  parser.add_argument('labeled_ratio', type=int, choices=[10, 20, 100]) # percentage
+  parser.add_argument('corruption_ratio', type=int, choices=range(0, 60, 10)) # percentage
   parser.add_argument('--optimize', action='store_true', help='does hyperparameter optimization')
   args = parser.parse_args()
 
-  log_path = os.path.join('log', args.dataset, args.ml_method, args.init)
+  log_path = os.path.join('log', args.dataset, args.ml_method, args.init, str(args.labeled_ratio), str(args.corruption_ratio))
   if not os.path.exists(log_path):
     os.makedirs(log_path)
 
-  dh = DataHandler(args.dataset)
+  dh = DataHandler(args.dataset, args.labeled_ratio, args.corruption_ratio)
 
   if args.ml_method == 'br':
-    loss_function = binary_relevance
+    loss_function = ml_loss.binary_relevance.binary_relevance
+  elif args.ml_method == 'sm':
+    loss_function = ml_loss.ml_softmax.ml_softmax
+  elif args.ml_method == 'pwr':
+    loss_function = ml_loss.pairwise_ranking.pairwise_ranking
+  elif args.ml_method == 'warp':
+    loss_function = ml_loss.warp.warp
+  elif args.ml_method == 'robust_warp':
+    loss_function = ml_loss.robust_warp.robust_warp
+  elif args.ml_method == 'robust_warp_sup':
+    loss_function = ml_loss.robust_warp_sup.robust_warp_sup
+    print 'robust_warp_sup is robust_warp that can only be used for fully-supervised training'
 
   if args.optimize:
     step = 0

@@ -1,3 +1,9 @@
+"""
+Gong, Yunchao, et al. "Deep convolutional ranking for multilabel image
+annotation." arXiv preprint arXiv:1312.4894 (2013). Section 2.2.3
+"""
+
+
 import os
 
 import tensorflow as tf
@@ -11,5 +17,5 @@ warp_grad_module = tf.load_op_library(os.path.join(real_path, 'warp_grad.so'))
 def warp_grad(op, grad):
   grad_mult = warp_grad_module.warp_grad(op.inputs[0], op.inputs[1])
   return [None, grad * grad_mult]
-def warp_loss(y_true, y_pred):
+def warp(y_true, y_pred):
   return warp_module.warp(y_true, y_pred)

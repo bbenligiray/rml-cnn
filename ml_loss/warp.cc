@@ -70,7 +70,7 @@ class WarpOp : public OpKernel {
 
     // write the output to the output tensor
     auto output = output_tensor->flat<float>();
-    output(0) = loss / 10;
+    output(0) = loss;
   }
 };
 
