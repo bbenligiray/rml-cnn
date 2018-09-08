@@ -107,6 +107,7 @@ def run_experiment(x):
 def main():
   if args.optimize:
     res = gp_minimize(run_experiment, params.opt_interval[args.init], n_random_starts=params.no_random_starts, n_calls=params.no_opt_iters)
+    log_path = os.path.join('log', args.dataset, args.ml_method, args.init, str(args.labeled_ratio), str(args.corruption_ratio))
     with open(os.path.join(log_path, 'opt_res.p'), 'wb') as f:
       pickle.dump(res, f, pickle.HIGHEST_PROTOCOL)
     with open(os.path.join(log_path, 'opt_res.txt'), 'w') as f:
@@ -120,7 +121,7 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument('dataset', choices=['nus_wide', 'ms_coco'])
   parser.add_argument('init', choices=['imagenet', 'random'])
-  parser.add_argument('ml_method', choices=['br', 'sm', 'pwr', 'warp', 'robust_warp'])
+  parser.add_argument('ml_method', choices=['br', 'sm', 'pwr', 'warp', 'robust_warp', 'robust_warp_sup'])
   parser.add_argument('labeled_ratio', type=int, choices=[10, 20, 100]) # percentage
   parser.add_argument('corruption_ratio', type=int, choices=range(0, 60, 10)) # percentage
   parser.add_argument('--optimize', action='store_true', help='does hyperparameter optimization')
@@ -139,12 +140,12 @@ if __name__ == '__main__':
   elif args.ml_method == 'pwr':
     loss_function = ml_loss.pairwise_ranking.pairwise_ranking
   elif args.ml_method == 'warp':
-    loss_function = ml_loss.warp.warp
+    loss_function = ml_loss.warp_py.warp
   elif args.ml_method == 'robust_warp':
-    loss_function = ml_loss.robust_warp.robust_warp
+    loss_function = ml_loss.robust_warp_py.robust_warp
   elif args.ml_method == 'robust_warp_sup':
-    loss_function = ml_loss.robust_warp_sup.robust_warp_sup
-    print 'robust_warp_sup is robust_warp that can only be used for fully-supervised training'
+    #robust_warp_sup is robust_warp that can only be used for fully-supervised training
+    loss_function = ml_loss.robust_warp_sup_py.robust_warp_sup
 
   if args.optimize:
     step = 0

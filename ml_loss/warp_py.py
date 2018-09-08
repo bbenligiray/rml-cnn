@@ -3,7 +3,6 @@ Gong, Yunchao, et al. "Deep convolutional ranking for multilabel image
 annotation." arXiv preprint arXiv:1312.4894 (2013). Section 2.2.3
 """
 
-
 import os
 
 import tensorflow as tf

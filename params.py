@@ -1,7 +1,7 @@
 batch_size = 96
 no_lr_steps = 2
-lr_patience = 2 # 10
-max_epoch = 10 # 100
+lr_patience = 10
+max_epoch = 100
 
 # best parameters
 learning_rate = {'imagenet': 0.0001,
@@ -11,7 +11,7 @@ weight_decay = {'imagenet': 0.0005,
                 'random': 0.0005}
 
 # hyperparameter optimization parameters
-opt_interval = {'imagenet': [(1E-4, 1E-2, 'log-uniform'), # learning rate
+opt_interval = {'imagenet': [(1E-3, 1E-1, 'log-uniform'), # learning rate
                             (1E-6, 1E-4, 'log-uniform')], # weight decay}
                 'random': [(1E-4, 1E-2, 'log-uniform'), # learning rate
                           (1E-6, 1E-4, 'log-uniform')]} # weight decay
