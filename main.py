@@ -55,6 +55,10 @@ def run_experiment(x):
     if not os.path.exists(log_path):
       os.makedirs(log_path)
 
+  with open(os.path.join(log_path, 'his.txt'), 'a') as f:
+    f.write('Learning rate: ' + str(x[0]) + '\n')
+    f.write('Weight decay: ' + str(x[1]) + '\n')
+
   K.clear_session()
   model = resnet101(dh.no_classes[args.dataset], initialization=args.init, weight_decay=weight_decay)
   model = to_multi_gpu(model, n_gpus=4)
@@ -75,7 +79,7 @@ def run_experiment(x):
                               callbacks=[model_checkpoint, early_stopper, loss_plotter],
                               validation_data=dh.generator('val'),
                               validation_steps=len(dh.val_images) / params.batch_size / 10,
-                              verbose=2)
+                              verbose=1)
     with open(os.path.join(log_path, str(ind_lr_step) + '_his.p'), 'wb') as f:
       pickle.dump(his.history, f, pickle.HIGHEST_PROTOCOL)
     with open(os.path.join(log_path, 'his.txt'), 'a') as f:
