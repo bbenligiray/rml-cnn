@@ -79,7 +79,7 @@ def run_experiment(x):
                               callbacks=[model_checkpoint, early_stopper, loss_plotter],
                               validation_data=dh.generator('val'),
                               validation_steps=len(dh.val_images) / params.batch_size / 10,
-                              verbose=1)
+                              verbose=2)
     with open(os.path.join(log_path, str(ind_lr_step) + '_his.p'), 'wb') as f:
       pickle.dump(his.history, f, pickle.HIGHEST_PROTOCOL)
     with open(os.path.join(log_path, 'his.txt'), 'a') as f:
@@ -109,8 +109,18 @@ def run_experiment(x):
 
 
 def main():
+  global log_path
+  global step
   if args.optimize:
-    res = gp_minimize(run_experiment, params.opt_interval[args.init], n_random_starts=params.no_random_starts, n_calls=params.no_opt_iters)
+    if args.cont:
+      with open(os.path.join(log_path, 'opt_res.p'), 'rb') as f:
+        past_res = pickle.load(f)
+      step = len(past_res['x_iters'])
+      res = gp_minimize(run_experiment, params.opt_interval[args.init], n_random_starts=params.no_random_starts, n_calls=params.no_opt_iters,
+                        x0=past_res['x_iters'], y0=past_res['func_vals'])
+    else:
+      res = gp_minimize(run_experiment, params.opt_interval[args.init], n_random_starts=params.no_random_starts, n_calls=params.no_opt_iters)
+ 
     log_path = os.path.join('log', args.dataset, args.ml_method, args.init, str(args.labeled_ratio), str(args.corruption_ratio))
     with open(os.path.join(log_path, 'opt_res.p'), 'wb') as f:
       pickle.dump(res, f, pickle.HIGHEST_PROTOCOL)
@@ -129,6 +139,7 @@ if __name__ == '__main__':
   parser.add_argument('labeled_ratio', type=int, choices=[10, 20, 100]) # percentage
   parser.add_argument('corruption_ratio', type=int, choices=range(0, 60, 10)) # percentage
   parser.add_argument('--optimize', action='store_true', help='does hyperparameter optimization')
+  parser.add_argument('--cont', action='store_true', help='continues optimization')
   args = parser.parse_args()
 
   log_path = os.path.join('log', args.dataset, args.ml_method, args.init, str(args.labeled_ratio), str(args.corruption_ratio))
