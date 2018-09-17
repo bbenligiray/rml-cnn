@@ -6,6 +6,8 @@ annotation." arXiv preprint arXiv:1312.4894 (2013). Section 2.2.2
 
 import tensorflow as tf
 
+norm_factor = 20
+
 
 def pairwise_ranking(y_true, y_pred):
   tf_batch_size = tf.shape(y_pred)[0]
@@ -36,4 +38,4 @@ def pairwise_ranking(y_true, y_pred):
 
   loss = tf.reduce_sum(effective_loss_matrix) / tf.cast(tf_batch_size, tf.float32)
 
-  return loss
+  return loss / norm_factor

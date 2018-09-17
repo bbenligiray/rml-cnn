@@ -5,7 +5,7 @@ import numpy as np
 from tensorflow.python.framework import ops
 
 
-norm_factor = 2000
+norm_factor = 20
 
 real_path = os.path.dirname(os.path.realpath(__file__))
 robust_warp_module = tf.load_op_library(os.path.join(real_path, 'robust_warp.so'))
