@@ -91,53 +91,102 @@ class DataHandler:
           pos_class = random.randint(0, self.train_labels.shape[1] - 1)
           corrupted_labels[ind_labeled, pos_class] = 1
       
-      self.train_labels = corrupted_labels      
+      self.train_labels = corrupted_labels     
 
 
   def generator(self, data_type, shuffle_batches=True):
-    while True:
-      if data_type == 'train_all':
-        no_examples = len(self.train_images)
-      if data_type == 'train_labeled':
-        no_examples = len(self.inds_labeled)
-      elif data_type == 'val':
-        no_examples = len(self.val_images)
+    if data_type == 'train_mixed':
+      while True:
+        no_labeled = len(self.inds_labeled)
+        no_unlabeled = len(self.inds_unlabeled)
+        no_examples = no_labeled + no_unlabeled
 
-      no_batches = int(np.ceil(float(no_examples) / params.batch_size))
-      inds_batch = range(no_batches)
-      if shuffle_batches:
-        random.shuffle(inds_batch)
+        no_batches = int(np.ceil(float(no_examples) / params.batch_size))
+        inds = range(no_batches * params.batch_size)
+        inds[no_examples:] = range(len(inds) - no_examples)
+        random.shuffle(inds)
 
-      for ind_batch in inds_batch:
-        if ind_batch == no_batches - 1:
-          inds = range(no_examples - params.batch_size, no_examples)
-        else:
-          inds = range(ind_batch * params.batch_size, (ind_batch + 1) * params.batch_size)
-        
+        for ind_batch in range(no_batches):
+          inds_image = inds[ind_batch * params.batch_size:(ind_batch + 1) * params.batch_size]
+
+          images_flat = np.empty((params.batch_size, self.train_images[0].shape[0]), dtype=np.float32)
+          image_shapes = np.empty((params.batch_size, 3), dtype=np.float32)
+          prep = self.preprocessor_aug
+          labels_batch = np.empty((params.batch_size, self.train_labels.shape[1] + 1), dtype=np.float32)
+
+          for ind, ind_image in enumerate(inds_image):
+            if ind_image < no_labeled:
+              images_flat[ind] = self.train_images[self.inds_labeled][ind_image]
+              image_shapes[ind] = self.train_image_shapes[self.inds_labeled][ind_image]
+              labels_batch[ind] = self.train_labels[self.inds_labeled][ind_image]
+            else:
+              ind_image -= no_labeled
+              images_flat[ind] = self.train_images[self.inds_unlabeled][ind_image]
+              image_shapes[ind] = self.train_image_shapes[self.inds_unlabeled][ind_image]
+              labels_batch[ind] = self.train_labels[self.inds_unlabeled][ind_image]
+
+          images_batch = np.empty((params.batch_size, 224, 224, 3), dtype=np.float32)
+          for ind_image, image_flat in enumerate(images_flat):
+            shaped_image = image_flat.reshape(224, 224, 3)
+            images_batch[ind_image] = prep.random_transform(shaped_image)
+
+          yield images_batch, labels_batch
+
+    else:
+      while True:
         if data_type == 'train_all':
-          images_flat = self.train_images[inds]
-          image_shapes = self.train_image_shapes[inds]
-          prep = self.preprocessor_aug
-          labels_batch = self.train_labels[inds]
-
-        elif data_type == 'train_labeled':
-          inds = [self.inds_labeled[i] for i in inds]
-          inds.sort()
-
-          images_flat = self.train_images[inds]
-          image_shapes = self.train_image_shapes[inds]
-          prep = self.preprocessor_aug
-          labels_batch = self.train_labels[inds]
-          
+          no_examples = len(self.train_images)
+        if data_type == 'train_labeled':
+          no_examples = len(self.inds_labeled)
+        if data_type == 'train_unlabeled':
+          no_examples = len(self.inds_unlabeled)
         elif data_type == 'val':
-          images_flat = self.val_images[inds]
-          image_shapes = self.val_image_shapes[inds]
-          prep = self.preprocessor
-          labels_batch = self.val_labels[inds]
+          no_examples = len(self.val_images)
 
-        images_batch = np.empty((params.batch_size, 224, 224, 3), dtype=np.float32)
-        for ind_image, image_flat in enumerate(images_flat):
-          shaped_image = image_flat.reshape(224, 224, 3)
-          images_batch[ind_image] = prep.random_transform(shaped_image)
+        no_batches = int(np.ceil(float(no_examples) / params.batch_size))
+        inds_batch = range(no_batches)
+        if shuffle_batches:
+          random.shuffle(inds_batch)
 
-        yield images_batch, labels_batch
+        for ind_batch in inds_batch:
+          if ind_batch == no_batches - 1:
+            inds = range(no_examples - params.batch_size, no_examples)
+          else:
+            inds = range(ind_batch * params.batch_size, (ind_batch + 1) * params.batch_size)
+          
+          if data_type == 'train_all':
+            images_flat = self.train_images[inds]
+            image_shapes = self.train_image_shapes[inds]
+            prep = self.preprocessor_aug
+            labels_batch = self.train_labels[inds]
+
+          elif data_type == 'train_labeled':
+            inds = [self.inds_labeled[i] for i in inds]
+            inds.sort()
+
+            images_flat = self.train_images[inds]
+            image_shapes = self.train_image_shapes[inds]
+            prep = self.preprocessor_aug
+            labels_batch = self.train_labels[inds]
+
+          elif data_type == 'train_unlabeled':
+            inds = [self.inds_unlabeled[i] for i in inds]
+            inds.sort()
+
+            images_flat = self.train_images[inds]
+            image_shapes = self.train_image_shapes[inds]
+            prep = self.preprocessor_aug
+            labels_batch = self.train_labels[inds]
+            
+          elif data_type == 'val':
+            images_flat = self.val_images[inds]
+            image_shapes = self.val_image_shapes[inds]
+            prep = self.preprocessor
+            labels_batch = self.val_labels[inds]
+
+          images_batch = np.empty((params.batch_size, 224, 224, 3), dtype=np.float32)
+          for ind_image, image_flat in enumerate(images_flat):
+            shaped_image = image_flat.reshape(224, 224, 3)
+            images_batch[ind_image] = prep.random_transform(shaped_image)
+
+          yield images_batch, labels_batch

@@ -1,5 +1,6 @@
 /dataset
 /log
+/log2
 
 *.pyc
 *.h5
