@@ -75,10 +75,10 @@ def test_model(model):
     preds_batch = model.predict(images_batch, batch_size=params.batch_size)
 
     if ind_batch == no_batches - 1:
-      preds[no_examples - params.batch_size:no_examples] = preds_batch
+      preds[no_examples - params.batch_size:no_examples] = preds_batch[:,:-1]
       labels[no_examples - params.batch_size:no_examples] = labels_batch
     else:
-      preds[ind_batch * params.batch_size:(ind_batch + 1) * params.batch_size] = preds_batch
+      preds[ind_batch * params.batch_size:(ind_batch + 1) * params.batch_size] = preds_batch[:,:-1]
       labels[ind_batch * params.batch_size:(ind_batch + 1) * params.batch_size] = labels_batch
 
   return metrics.calculate_metrics(labels, preds)
@@ -96,56 +96,69 @@ def run_experiment(x):
     if not os.path.exists(log_path):
       os.makedirs(log_path)
 
-  with open(os.path.join(log_path, 'his.txt'), 'a') as f:
+  with open(os.path.join(log_path, 'his.txt'), 'w') as f:
     f.write('Learning rate: ' + str(x[0]) + '\n')
     f.write('Weight decay: ' + str(x[1]) + '\n')
 
   K.clear_session()
-  model = resnet101(dh.no_classes[args.dataset], initialization=args.init, weight_decay=weight_decay)
-  if n_gpus > 1:
-    model = to_multi_gpu(model, n_gpus=n_gpus)
 
   if args.ml_method == 'robust_warp':
     model_path = os.path.join('log', args.dataset, 'robust_warp_sup', args.init, str(args.labeled_ratio), str(args.corruption_ratio), 'best', 'best_cp.h5')
   else:
     model_path = os.path.join('log', args.dataset, args.ml_method, args.init, str(args.labeled_ratio), str(args.corruption_ratio), 'best', 'best_cp.h5')
-  model.load_weights(model_path)
+  
+  model = resnet101(dh.no_classes[args.dataset] + 1, initialization=args.init, weight_decay=weight_decay)
 
-  update_mixed_labels(model)
+  if n_gpus > 1:
+    model_orig = resnet101(dh.no_classes[args.dataset], initialization=args.init, weight_decay=weight_decay)
+    model_orig.load_weights(model_path, by_name=True)
+    for ind_layer in range(len(model.layers)):
+      if model.layers[ind_layer].name == model_orig.layers[ind_layer].name:
+        model.layers[ind_layer].set_weights(model_orig.layers[ind_layer].get_weights())
+    model = to_multi_gpu(model, n_gpus=n_gpus)
+  else:
+    model.load_weights(model_path, by_name=True)
 
   sgd = SGD(lr=learning_rate, momentum=0.9, decay=0.0, nesterov=True)
   model.compile(loss=loss_function, optimizer=sgd, metrics=[loss_function])
 
   ind_lr_step = 0
-  lowest_loss = np.inf
-  while ind_lr_step < params.no_lr_steps:
-    model_checkpoint= ModelCheckpoint(os.path.join(log_path, str(ind_lr_step) + '_cp.h5'), monitor='val_loss', save_best_only=True)
-    early_stopper = EarlyStopping(monitor='val_loss', patience=params.lr_patience)
-    loss_plotter = LossPlotter(os.path.join(log_path, str(ind_lr_step) + '_losses.png'))
+  train_losses = []
+  val_losses = []
+  patience_losses = []
+  for ind_epoch in range(params.max_epoch):
+    if ind_epoch % params.update_epoch == 0:
+      update_mixed_labels(model)
 
     his = model.fit_generator(generator=dh.generator('train_mixed'),
+                              #steps_per_epoch=8,
                               steps_per_epoch=dh.mixed_labels.shape[0] / params.batch_size,
-                              epochs=params.max_epoch,
-                              callbacks=[model_checkpoint, early_stopper, loss_plotter],
                               validation_data=dh.generator('val'),
+                              #validation_steps=8,
                               validation_steps=len(dh.val_images) / params.batch_size / 10,
                               verbose=2)
-    with open(os.path.join(log_path, str(ind_lr_step) + '_his.p'), 'wb') as f:
-      pickle.dump(his.history, f, pickle.HIGHEST_PROTOCOL)
-    with open(os.path.join(log_path, 'his.txt'), 'a') as f:
-      f.write('Training history:\n')
-      f.write(str(his.history) + '\n')
 
-    if np.min(his.history['val_loss']) < lowest_loss:
-      lowest_loss = np.min(his.history['val_loss'])
-    else:
-      model.load_weights(os.path.join(log_path, str(ind_lr_step - 1) + '_cp.h5'), by_name=True)
-      break
+    train_losses.append(his.history['loss'][0])
+    val_losses.append(his.history['val_loss'][0])
+    patience_losses.append(his.history['val_loss'][0])
 
-    model.load_weights(os.path.join(log_path, str(ind_lr_step) + '_cp.h5'), by_name=True)
-    learning_rate /= 10
-    K.set_value(model.optimizer.lr, learning_rate)
-    ind_lr_step += 1
+    if min(patience_losses) == patience_losses[-1]:
+      model.save_weights(os.path.join(log_path, str(ind_lr_step) + '_cp.h5'))
+    elif np.argmin(np.array(patience_losses)) < len(patience_losses) - 1 - params.lr_patience:
+      with open(os.path.join(log_path, 'his.txt'), 'a') as f:
+        f.write('loss: ' + str(train_losses) + '\n')
+        f.write('val_loss: ' + str(val_losses) + '\n')
+      if ind_lr_step == params.no_lr_steps - 1:
+        model.load_weights(os.path.join(log_path, str(ind_lr_step) + '_cp.h5'), by_name=True)
+        break
+      else:
+        model.load_weights(os.path.join(log_path, str(ind_lr_step) + '_cp.h5'), by_name=True)
+        learning_rate /= 10
+        K.set_value(model.optimizer.lr, learning_rate)
+        ind_lr_step += 1
+        model.save_weights(os.path.join(log_path, str(ind_lr_step) + '_cp.h5'))
+        train_losses = []
+        val_losses = []
 
   model.save_weights(os.path.join(log_path, 'best_cp.h5'))
 
@@ -154,7 +167,7 @@ def run_experiment(x):
     pickle.dump(metrics, f, pickle.HIGHEST_PROTOCOL)
   with open(os.path.join(log_path, 'metrics.txt'), 'w') as f:
     f.write(str(metrics) + '\n')
-  
+
   return -metrics['f1c_top3'] # negative because gp_minimize tries to minimize the result
 
 

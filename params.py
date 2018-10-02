@@ -2,6 +2,7 @@ batch_size = 96
 no_lr_steps = 2
 lr_patience = 10
 max_epoch = 100
+update_epoch = 20
 
 # best parameters
 learning_rate = {'imagenet': 0.0001,

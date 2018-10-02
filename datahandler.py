@@ -116,14 +116,14 @@ class DataHandler:
 
           for ind, ind_image in enumerate(inds_image):
             if ind_image < no_labeled:
-              images_flat[ind] = self.train_images[self.inds_labeled][ind_image]
-              image_shapes[ind] = self.train_image_shapes[self.inds_labeled][ind_image]
-              labels_batch[ind] = self.train_labels[self.inds_labeled][ind_image]
+              images_flat[ind] = self.train_images[self.inds_labeled[ind_image]]
+              image_shapes[ind] = self.train_image_shapes[self.inds_labeled[ind_image]]
+              labels_batch[ind] = self.mixed_labels[ind_image]
             else:
-              ind_image -= no_labeled
-              images_flat[ind] = self.train_images[self.inds_unlabeled][ind_image]
-              image_shapes[ind] = self.train_image_shapes[self.inds_unlabeled][ind_image]
-              labels_batch[ind] = self.train_labels[self.inds_unlabeled][ind_image]
+              ind_image_offset = ind_image - no_labeled
+              images_flat[ind] = self.train_images[self.inds_unlabeled[ind_image_offset]]
+              image_shapes[ind] = self.train_image_shapes[self.inds_unlabeled[ind_image_offset]]
+              labels_batch[ind] = self.mixed_labels[ind_image]
 
           images_batch = np.empty((params.batch_size, 224, 224, 3), dtype=np.float32)
           for ind_image, image_flat in enumerate(images_flat):

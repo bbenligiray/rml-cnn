@@ -220,7 +220,7 @@ def resnet101(no_classes, initialization='imagenet', weight_decay=0, final_activ
 
   x_fc = AveragePooling2D((7, 7), name='avg_pool')(x)
   x_fc = Flatten()(x_fc)
-  x_fc = Dense(no_classes, activation=final_activation, name='fc_final', kernel_regularizer=l2(weight_decay))(x_fc)
+  x_fc = Dense(no_classes, activation=final_activation, name='fc_final' + str(no_classes), kernel_regularizer=l2(weight_decay))(x_fc)
 
   model = Model(img_input, x_fc)
     
