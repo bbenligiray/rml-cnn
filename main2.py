@@ -19,11 +19,11 @@ import params
 
 
 def update_mixed_labels(model):
-  if n_gpus > 1:
+  if params.n_gpus > 1:
     feat_model = to_single_gpu(model)
   feat_model = keras.Model(feat_model.layers[0].input, feat_model.layers[-2].output)
-  if n_gpus > 1:
-    feat_model = to_multi_gpu(feat_model, n_gpus=n_gpus)
+  if params.n_gpus > 1:
+    feat_model = to_multi_gpu(feat_model, n_gpus=params.n_gpus)
 
   no_batches = int(np.ceil(float(len(dh.inds_labeled)) / params.batch_size))
   l_feats = feat_model.predict_generator(dh.generator('train_labeled', shuffle_batches=False), no_batches)
@@ -109,30 +109,21 @@ def run_experiment(x):
   else:
     model_path = os.path.join('log', args.dataset, args.ml_method, args.init, str(args.labeled_ratio), str(args.corruption_ratio), 'best', 'best_cp.h5')
   
+  model_orig = resnet101(dh.no_classes[args.dataset], initialization=args.init, weight_decay=weight_decay)
+  if params.n_gpus > 1:
+    model_orig = to_multi_gpu(model_orig, n_gpus=params.n_gpus)
+  model_orig.load_weights(model_path)
+
+  update_mixed_labels(model_orig)
+
   model = resnet101(dh.no_classes[args.dataset] + 1, initialization=args.init, weight_decay=weight_decay)
-  if n_gpus > 1:
-    model_orig = resnet101(dh.no_classes[args.dataset], initialization=args.init, weight_decay=weight_decay)
-    model_orig = to_multi_gpu(model_orig, n_gpus=n_gpus)
-    model_orig.load_weights(model_path)
+  if params.n_gpus > 1:
     model_orig = to_single_gpu(model_orig)
-    for ind_layer in range(len(model.layers)):
+  for ind_layer in range(len(model.layers)):
       if model.layers[ind_layer].name == model_orig.layers[ind_layer].name:
         model.layers[ind_layer].set_weights(model_orig.layers[ind_layer].get_weights())
-    model = to_multi_gpu(model, n_gpus=n_gpus)
-  else:
-    model_orig = resnet101(dh.no_classes[args.dataset], initialization=args.init, weight_decay=weight_decay)
-    model_orig.load_weights(model_path)
-    for ind_layer in range(len(model.layers)):
-      if model.layers[ind_layer].name == model_orig.layers[ind_layer].name:
-        model.layers[ind_layer].set_weights(model_orig.layers[ind_layer].get_weights())
-
-  # propagate labels
-  update_mixed_labels(model)
-
-  # load ImageNet pretrained/randomly initialized model
-  model = resnet101(dh.no_classes[args.dataset] + 1, initialization=args.init, weight_decay=weight_decay)
-  if n_gpus > 1:
-    model = to_multi_gpu(model, n_gpus=n_gpus)
+  if params.n_gpus > 1:
+    model = to_multi_gpu(model, n_gpus=params.n_gpus)
 
   sgd = SGD(lr=learning_rate, momentum=0.9, decay=0.0, nesterov=True)
   model.compile(loss=loss_function, optimizer=sgd, metrics=[loss_function])
@@ -210,8 +201,6 @@ def main():
 
 
 if __name__ == '__main__':
-  n_gpus = 4
-
   parser = argparse.ArgumentParser()
   parser.add_argument('dataset', choices=['nus_wide', 'ms_coco'])
   parser.add_argument('init', choices=['imagenet', 'random'])

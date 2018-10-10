@@ -57,8 +57,8 @@ def run_experiment(x):
 
   K.clear_session()
   model = resnet101(dh.no_classes[args.dataset], initialization=args.init, weight_decay=weight_decay)
-  if n_gpus > 1:
-    model = to_multi_gpu(model, n_gpus=n_gpus)
+  if params.n_gpus > 1:
+    model = to_multi_gpu(model, n_gpus=params.n_gpus)
 
   sgd = SGD(lr=learning_rate, momentum=0.9, decay=0.0, nesterov=True)
   model.compile(loss=loss_function, optimizer=sgd, metrics=[loss_function])
@@ -129,8 +129,6 @@ def main():
 
 
 if __name__ == '__main__':
-  n_gpus = 4
-
   parser = argparse.ArgumentParser()
   parser.add_argument('dataset', choices=['nus_wide', 'ms_coco'])
   parser.add_argument('init', choices=['imagenet', 'random'])
