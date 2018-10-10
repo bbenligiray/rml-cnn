@@ -55,9 +55,10 @@ def update_mixed_labels(model):
   mixed_labels[:no_labeled, -1] = 5
   mixed_labels[no_labeled:, -1] = similarity_scores
 
-  mixed_labels[:no_labeled, :-1] = dh.train_labels[dh.inds_labeled]
+  for ind_labeled in range(no_labeled):
+    mixed_labels[ind_labeled, :-1] = dh.train_labels[dh.inds_labeled[ind_labeled]]
   for ind_unlabeled in range(no_unlabeled):
-    mixed_labels[no_labeled + ind_unlabeled, :-1] = dh.train_labels[dh.inds_labeled][min_dist_inds[ind_unlabeled]]
+    mixed_labels[no_labeled + ind_unlabeled, :-1] = dh.train_labels[dh.inds_labeled[min_dist_inds[ind_unlabeled]]]
 
   dh.mixed_labels = mixed_labels
 
@@ -102,22 +103,36 @@ def run_experiment(x):
 
   K.clear_session()
 
+  # load pretrained model for label propagation
   if args.ml_method == 'robust_warp':
     model_path = os.path.join('log', args.dataset, 'robust_warp_sup', args.init, str(args.labeled_ratio), str(args.corruption_ratio), 'best', 'best_cp.h5')
   else:
     model_path = os.path.join('log', args.dataset, args.ml_method, args.init, str(args.labeled_ratio), str(args.corruption_ratio), 'best', 'best_cp.h5')
   
   model = resnet101(dh.no_classes[args.dataset] + 1, initialization=args.init, weight_decay=weight_decay)
-
   if n_gpus > 1:
     model_orig = resnet101(dh.no_classes[args.dataset], initialization=args.init, weight_decay=weight_decay)
-    model_orig.load_weights(model_path, by_name=True)
+    model_orig = to_multi_gpu(model_orig, n_gpus=n_gpus)
+    model_orig.load_weights(model_path)
+    model_orig = to_single_gpu(model_orig)
     for ind_layer in range(len(model.layers)):
       if model.layers[ind_layer].name == model_orig.layers[ind_layer].name:
         model.layers[ind_layer].set_weights(model_orig.layers[ind_layer].get_weights())
     model = to_multi_gpu(model, n_gpus=n_gpus)
   else:
-    model.load_weights(model_path, by_name=True)
+    model_orig = resnet101(dh.no_classes[args.dataset], initialization=args.init, weight_decay=weight_decay)
+    model_orig.load_weights(model_path)
+    for ind_layer in range(len(model.layers)):
+      if model.layers[ind_layer].name == model_orig.layers[ind_layer].name:
+        model.layers[ind_layer].set_weights(model_orig.layers[ind_layer].get_weights())
+
+  # propagate labels
+  update_mixed_labels(model)
+
+  # load ImageNet pretrained/randomly initialized model
+  model = resnet101(dh.no_classes[args.dataset] + 1, initialization=args.init, weight_decay=weight_decay)
+  if n_gpus > 1:
+    model = to_multi_gpu(model, n_gpus=n_gpus)
 
   sgd = SGD(lr=learning_rate, momentum=0.9, decay=0.0, nesterov=True)
   model.compile(loss=loss_function, optimizer=sgd, metrics=[loss_function])
@@ -127,7 +142,7 @@ def run_experiment(x):
   val_losses = []
   patience_losses = []
   for ind_epoch in range(params.max_epoch):
-    if ind_epoch % params.update_epoch == 0:
+    if ind_epoch % 20 == 0 and not ind_epoch == 0:
       update_mixed_labels(model)
 
     his = model.fit_generator(generator=dh.generator('train_mixed'),
