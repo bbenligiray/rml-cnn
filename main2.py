@@ -55,6 +55,7 @@ def update_mixed_labels(model):
   mixed_labels[:no_labeled, -1] = 5
   mixed_labels[no_labeled:, -1] = similarity_scores
 
+  import pdb; pdb.set_trace()
   for ind_labeled in range(no_labeled):
     mixed_labels[ind_labeled, :-1] = dh.train_labels[dh.inds_labeled[ind_labeled]]
   for ind_unlabeled in range(no_unlabeled):
@@ -216,7 +217,6 @@ if __name__ == '__main__':
     os.makedirs(log_path)
 
   dh = DataHandler(args.dataset, args.labeled_ratio, args.corruption_ratio)
-
 
   if args.ml_method == 'br':
     loss_function = ml_loss.binary_relevance.binary_relevance

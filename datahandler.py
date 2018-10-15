@@ -90,7 +90,7 @@ class DataHandler:
         for ind in range(no_pos):
           pos_class = random.randint(0, self.train_labels.shape[1] - 1)
           corrupted_labels[ind_labeled, pos_class] = 1
-      
+
       self.train_labels = corrupted_labels     
 
 
