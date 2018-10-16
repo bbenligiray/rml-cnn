@@ -30,11 +30,11 @@ def update_mixed_labels(model):
         feat_model = to_multi_gpu(feat_model, n_gpus=params.n_gpus)
 
     no_batches = int(np.ceil(float(len(dh.inds_labeled)) / params.batch_size))
-    l_feats = feat_model.predict_generator(dh.generator('train_labeled', shuffle_batches=False), no_batches)
+    l_feats = feat_model.predict_generator(dh.generator('train_labeled_sorted', aug=False, shuffle_batches=False), no_batches)
     l_feats = np.concatenate((l_feats[:(no_batches - 1) * params.batch_size], l_feats[-(len(dh.inds_labeled) - (no_batches - 1) * params.batch_size):]))
 
     no_batches = int(np.ceil(float(len(dh.inds_unlabeled)) / params.batch_size))
-    ul_feats = feat_model.predict_generator(dh.generator('train_unlabeled', shuffle_batches=False), no_batches)
+    ul_feats = feat_model.predict_generator(dh.generator('train_unlabeled', aug=False, shuffle_batches=False), no_batches)
     ul_feats = np.concatenate((ul_feats[:(no_batches - 1) * params.batch_size], ul_feats[-(len(dh.inds_unlabeled) - (no_batches - 1) * params.batch_size):]))
 
     min_dists = np.zeros(ul_feats.shape[0], dtype=np.float32)
@@ -56,14 +56,12 @@ def update_mixed_labels(model):
 
     mixed_labels = np.zeros((no_mixed, dh.no_classes[dh.dataset] + 1), dtype=np.float32)
 
-    mixed_labels[:no_labeled, -1] = 5
-    mixed_labels[no_labeled:, -1] = similarity_scores
+    mixed_labels[dh.inds_labeled_sorted, :-1] = dh.train_labels[dh.inds_labeled_sorted]
+    mixed_labels[dh.inds_labeled_sorted, -1] = 5
 
-
-    for ind_labeled in range(no_labeled):
-        mixed_labels[ind_labeled, :-1] = dh.train_labels[dh.inds_labeled[ind_labeled]]
     for ind_unlabeled in range(no_unlabeled):
-        mixed_labels[no_labeled + ind_unlabeled, :-1] = dh.train_labels[dh.inds_labeled[min_dist_inds[ind_unlabeled]]]
+        mixed_labels[dh.inds_labeled_sorted[min_dist_inds[ind_unlabeled]], :-1] = dh.train_labels[dh.inds_labeled_sorted[min_dist_inds[ind_unlabeled]]]
+        mixed_labels[dh.inds_labeled_sorted[min_dist_inds[ind_unlabeled]], -1] = similarity_scores[ind_unlabeled]
 
     dh.mixed_labels = mixed_labels
 
@@ -78,7 +76,7 @@ def test_model(model):
     preds = np.empty((no_examples, dh.no_classes[args.dataset]), dtype=np.float32)
     labels = np.empty((no_examples, dh.no_classes[args.dataset]), dtype=np.float32)
 
-    gen = dh.generator('val', shuffle_batches=False)
+    gen = dh.generator('val', aug=False, shuffle_batches=False)
     for ind_batch in range(no_batches):
         images_batch, labels_batch = gen.next()
         preds_batch = model.predict(images_batch, batch_size=params.batch_size)
@@ -116,18 +114,18 @@ def run_experiment(x):
 
     # load pretrained model for label propagation
     if args.ml_method == 'robust_warp':
-        model_path = os.path.join('log', args.dataset, 'robust_warp_sup', args.init, str(args.labeled_ratio), str(args.corruption_ratio), 'best', 'best_cp.h5')
+        model_path = os.path.join('log', args.dataset, 'robust_warp_sup', args.init, str(args.labeled_ratio), str(args.corruption_ratio), 'best_cp.h5')
     else:
-        model_path = os.path.join('log', args.dataset, args.ml_method, args.init, str(args.labeled_ratio), str(args.corruption_ratio), 'best', 'best_cp.h5')
+        model_path = os.path.join('log', args.dataset, args.ml_method, args.init, str(args.labeled_ratio), str(args.corruption_ratio), 'best_cp.h5')
 
-    model_orig = resnet101(dh.no_classes[args.dataset], initialization=args.init, weight_decay=weight_decay)
+    model_orig = resnet101(dh.no_classes[args.dataset], initialization=None, weight_decay=weight_decay)
     if params.n_gpus > 1:
         model_orig = to_multi_gpu(model_orig, n_gpus=params.n_gpus)
     model_orig.load_weights(model_path)
 
     update_mixed_labels(model_orig)
 
-    model = resnet101(dh.no_classes[args.dataset] + 1, initialization=args.init, weight_decay=weight_decay)
+    model = resnet101(dh.no_classes[args.dataset] + 1, initialization=None, weight_decay=weight_decay)
     if params.n_gpus > 1:
         model_orig = to_single_gpu(model_orig)
     for ind_layer in range(len(model.layers)):
@@ -147,9 +145,9 @@ def run_experiment(x):
         if ind_epoch % 20 == 0 and not ind_epoch == 0:
             update_mixed_labels(model)
 
-        his = model.fit_generator(generator=dh.generator('train_mixed'),
+        his = model.fit_generator(generator=dh.generator('train_mixed', aug=True),
                                   steps_per_epoch=dh.mixed_labels.shape[0] / params.batch_size,
-                                  validation_data=dh.generator('val'),
+                                  validation_data=dh.generator('val', aug=False),
                                   validation_steps=len(dh.val_images) / params.batch_size / 10,
                                   verbose=2)
 

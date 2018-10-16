@@ -30,7 +30,7 @@ def test_model(model):
     preds = np.empty((no_examples, dh.no_classes[args.dataset]), dtype=np.float32)
     labels = np.empty((no_examples, dh.no_classes[args.dataset]), dtype=np.float32)
 
-    gen = dh.generator('val', shuffle_batches=False)
+    gen = dh.generator('val', aug=False, shuffle_batches=False)
     for ind_batch in range(no_batches):
         images_batch, labels_batch = gen.next()
         preds_batch = model.predict(images_batch, batch_size=params.batch_size)
@@ -79,11 +79,11 @@ def run_experiment(x):
         early_stopper = EarlyStopping(monitor='val_loss', patience=params.lr_patience)
         loss_plotter = LossPlotter(os.path.join(log_path, str(ind_lr_step) + '_losses.png'))
 
-        his = model.fit_generator(generator=dh.generator('train_labeled'),
+        his = model.fit_generator(generator=dh.generator('train_labeled', aug=True),
                                   steps_per_epoch=len(dh.inds_labeled) / params.batch_size,
                                   epochs=params.max_epoch,
                                   callbacks=[model_checkpoint, early_stopper, loss_plotter],
-                                  validation_data=dh.generator('val'),
+                                  validation_data=dh.generator('val', aug=False),
                                   validation_steps=len(dh.val_images) / params.batch_size / 10,
                                   verbose=2)
         with open(os.path.join(log_path, str(ind_lr_step) + '_his.p'), 'wb') as f:
