@@ -22,8 +22,8 @@ weight_decay = {'imagenet': 1E-7,
                 'random2': 1E-7}
 
 # hyperparameter optimization parameters
-opt_interval = {'imagenet': [(1E-2, 1E0, 'log-uniform'), # learning rate
-                             (1E-7, 1E-5, 'log-uniform')], # weight decay
+opt_interval = {'imagenet': [(1E-3, 1E-1, 'log-uniform'), # learning rate
+                             (1E-8, 1E-6, 'log-uniform')], # weight decay
                 'random': [(1E-2, 1E0, 'log-uniform'), # learning rate
                            (1E-7, 1E-5, 'log-uniform')], # weight decay
                 'imagenet2': [(1E-2, 1E0, 'log-uniform'), # learning rate
