@@ -60,10 +60,20 @@ def update_mixed_labels(model):
     mixed_labels[dh.inds_labeled_sorted, -1] = 5
 
     for ind_unlabeled in range(no_unlabeled):
-        mixed_labels[dh.inds_labeled_sorted[min_dist_inds[ind_unlabeled]], :-1] = dh.train_labels[dh.inds_labeled_sorted[min_dist_inds[ind_unlabeled]]]
-        mixed_labels[dh.inds_labeled_sorted[min_dist_inds[ind_unlabeled]], -1] = similarity_scores[ind_unlabeled]
+        mixed_labels[dh.inds_unlabeled[ind_unlabeled], :-1] = dh.train_labels[dh.inds_labeled_sorted[min_dist_inds[ind_unlabeled]]]
+        mixed_labels[dh.inds_unlabeled[ind_unlabeled], -1] = similarity_scores[ind_unlabeled]
 
     dh.mixed_labels = mixed_labels
+
+    """for ind in range(no_mixed):
+        if ind in dh.inds_labeled:
+            print('Labeled')
+        else:
+            print('Propagated', dh.mixed_labels[ind, -1])
+        print(np.where(dh.train_labels[ind] == 1)[0])
+        print(np.where(dh.mixed_labels[ind, :-1] == 1)[0])
+        if ind % 5 == 0:
+            print(ind)"""
 
 
 def test_model(model):
@@ -118,14 +128,14 @@ def run_experiment(x):
     else:
         model_path = os.path.join('log', args.dataset, args.ml_method, args.init, str(args.labeled_ratio), str(args.corruption_ratio), 'best_cp.h5')
 
-    model_orig = resnet101(dh.no_classes[args.dataset], initialization=None, weight_decay=weight_decay)
+    model_orig = resnet101(dh.no_classes[args.dataset], initialization='random', weight_decay=weight_decay)
     if params.n_gpus > 1:
         model_orig = to_multi_gpu(model_orig, n_gpus=params.n_gpus)
     model_orig.load_weights(model_path)
 
     update_mixed_labels(model_orig)
 
-    model = resnet101(dh.no_classes[args.dataset] + 1, initialization=None, weight_decay=weight_decay)
+    model = resnet101(dh.no_classes[args.dataset] + 1, initialization='random', weight_decay=weight_decay)
     if params.n_gpus > 1:
         model_orig = to_single_gpu(model_orig)
     for ind_layer in range(len(model.layers)):
